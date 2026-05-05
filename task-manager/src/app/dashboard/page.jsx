@@ -5,46 +5,22 @@ import {
   Chart as ChartJS, ArcElement, Tooltip, Legend,
   CategoryScale, LinearScale, BarElement,
 } from 'chart.js';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import axiosInstance from '../../lib/axios';
+import { API_PATHS } from '../../lib/apiPaths';
+import getErrorMessage from '../../lib/getErrorMessage';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
-const stats = [
-  { label: 'Total Tasks', value: 18, color: 'border-l-indigo-500' },
-  { label: 'Pending Tasks', value: 11, color: 'border-l-amber-500' },
-  { label: 'In Progress', value: 5, color: 'border-l-purple-500' },
-  { label: 'Completed Tasks', value: 2, color: 'border-l-green-500' },
-];
-
-const donutData = {
-  labels: ['Pending', 'In Progress', 'Completed'],
-  datasets: [{
-    data: [11, 5, 2],
-    backgroundColor: ['#8b5cf6', '#6366f1', '#10b981'],
-    borderWidth: 3,
-    borderColor: '#fff',
-  }],
-};
-
-const barData = {
-  labels: ['Low', 'Medium', 'High'],
-  datasets: [{
-    label: 'Tasks',
-    data: [4, 8, 6],
-    backgroundColor: ['#a5b4fc', '#6366f1', '#4f46e5'],
-    borderRadius: 6,
-  }],
-};
-
-const upcomingTasks = [
-  { title: 'Team Meeting', date: 'Mar 25, 10:00 AM', color: 'bg-indigo-500' },
-  { title: 'Project Review', date: 'Mar 26, 2:00 PM', color: 'bg-amber-500' },
-  { title: 'Submit Report', date: 'Mar 28, 5:00 PM', color: 'bg-green-500' },
-];
+// Normalises a task's status string (handles snake_case + spaces from the API).
+const normaliseStatus = (s) => (s || '').toString().toLowerCase().replace(/[_\s]+/g, '-');
+const normalisePriority = (p) => (p || '').toString().toLowerCase();
 
 function CalendarWidget() {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 2, 1));
-  const today = 25;
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const today = new Date().getDate();
+  const todayMonth = new Date().getMonth();
+  const todayYear = new Date().getFullYear();
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const monthNames = ['January','February','March','April','May','June',
@@ -66,33 +42,137 @@ function CalendarWidget() {
         {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
           <div key={d} className="text-xs text-gray-400 font-semibold pb-2">{d}</div>
         ))}
-        {days.map((d, i) => (
-          <div key={i} className={`py-2 text-sm rounded-md ${
-            d === today ? 'bg-indigo-600 text-white font-bold' :
-            d ? 'text-gray-700 hover:bg-gray-100 cursor-pointer' : ''
-          }`}>
-            {d || ''}
-          </div>
-        ))}
+        {days.map((d, i) => {
+          const isToday = d === today && month === todayMonth && year === todayYear;
+          return (
+            <div key={i} className={`py-2 text-sm rounded-md ${
+              isToday ? 'bg-indigo-600 text-white font-bold' :
+              d ? 'text-gray-700 hover:bg-gray-100 cursor-pointer' : ''
+            }`}>
+              {d || ''}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 export default function DashboardPage() {
+  const [tasks, setTasks] = useState([]);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('user');
+        if (raw) setUser(JSON.parse(raw));
+      } catch { /* noop */ }
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      setErrorMessage('');
+      try {
+        const res = await axiosInstance.get(API_PATHS.TASKS.LIST);
+        const list = Array.isArray(res?.data?.data) ? res.data.data : [];
+        if (mounted) setTasks(list);
+      } catch (err) {
+        if (mounted) setErrorMessage(getErrorMessage(err, 'Failed to load tasks.'));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // Derive stat counts and chart data from the real tasks list.
+  const { total, pending, inProgress, completed, priorityCounts, upcoming } = useMemo(() => {
+    let pendingCount = 0;
+    let inProgressCount = 0;
+    let completedCount = 0;
+    const priority = { low: 0, medium: 0, high: 0 };
+
+    tasks.forEach((t) => {
+      const status = normaliseStatus(t.status);
+      if (status === 'completed') completedCount++;
+      else if (status === 'in-progress') inProgressCount++;
+      else pendingCount++;
+
+      const p = normalisePriority(t.priority);
+      if (p === 'high') priority.high++;
+      else if (p === 'medium') priority.medium++;
+      else if (p === 'low') priority.low++;
+    });
+
+    const upcomingTasks = [...tasks]
+      .filter((t) => t.due_date && normaliseStatus(t.status) !== 'completed')
+      .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
+      .slice(0, 5);
+
+    return {
+      total: tasks.length,
+      pending: pendingCount,
+      inProgress: inProgressCount,
+      completed: completedCount,
+      priorityCounts: priority,
+      upcoming: upcomingTasks,
+    };
+  }, [tasks]);
+
+  const statCards = [
+    { label: 'Total Tasks', value: total, color: 'border-l-indigo-500' },
+    { label: 'Pending Tasks', value: pending, color: 'border-l-amber-500' },
+    { label: 'In Progress', value: inProgress, color: 'border-l-purple-500' },
+    { label: 'Completed Tasks', value: completed, color: 'border-l-green-500' },
+  ];
+
+  const donutData = {
+    labels: ['Pending', 'In Progress', 'Completed'],
+    datasets: [{
+      data: [pending, inProgress, completed],
+      backgroundColor: ['#8b5cf6', '#6366f1', '#10b981'],
+      borderWidth: 3,
+      borderColor: '#fff',
+    }],
+  };
+
+  const barData = {
+    labels: ['Low', 'Medium', 'High'],
+    datasets: [{
+      label: 'Tasks',
+      data: [priorityCounts.low, priorityCounts.medium, priorityCounts.high],
+      backgroundColor: ['#a5b4fc', '#6366f1', '#4f46e5'],
+      borderRadius: 6,
+    }],
+  };
+
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const greetingName = user?.name ? user.name.split(' ')[0] : 'there';
+
+  const upcomingColors = ['bg-indigo-500', 'bg-amber-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500'];
+  const formatUpcoming = (dateStr) => {
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   return (
     <DashboardLayout>
       {/* Header Card */}
       <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">{greeting}! Ashis</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{greeting}! {greetingName}</h1>
         <p className="text-gray-500 mt-1">{dateStr}</p>
-        <div className="flex gap-8 mt-6">
-          {stats.map(s => (
+        <div className="flex gap-8 mt-6 flex-wrap">
+          {statCards.map(s => (
             <div key={s.label} className={`flex items-center gap-2 border-l-4 pl-3 ${s.color}`}>
               <div>
                 <span className="text-2xl font-bold text-gray-900">{s.value} </span>
@@ -101,6 +181,12 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
+        {errorMessage && (
+          <p className="mt-4 text-sm text-red-500">{errorMessage}</p>
+        )}
+        {loading && (
+          <p className="mt-4 text-sm text-gray-400">Loading tasks...</p>
+        )}
       </div>
 
       {/* Charts Row */}
@@ -115,7 +201,7 @@ export default function DashboardPage() {
           <h3 className="text-base font-semibold text-gray-900 mb-4">Task Priority Levels</h3>
           <Bar data={barData} options={{
             plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, max: 10 } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
           }} />
         </div>
       </div>
@@ -129,15 +215,19 @@ export default function DashboardPage() {
       {/* Upcoming Tasks */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
         <h3 className="text-base font-semibold text-gray-900 mb-4">Upcoming Tasks</h3>
-        {upcomingTasks.map(t => (
-          <div key={t.title} className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0">
-            <div className={`w-2.5 h-2.5 rounded-full ${t.color}`} />
-            <div>
-              <p className="font-medium text-sm text-gray-800">{t.title}</p>
-              <p className="text-xs text-gray-400">{t.date}</p>
+        {upcoming.length === 0 ? (
+          <p className="text-sm text-gray-400">No upcoming tasks.</p>
+        ) : (
+          upcoming.map((t, idx) => (
+            <div key={t.id || idx} className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0">
+              <div className={`w-2.5 h-2.5 rounded-full ${upcomingColors[idx % upcomingColors.length]}`} />
+              <div>
+                <p className="font-medium text-sm text-gray-800">{t.title}</p>
+                <p className="text-xs text-gray-400">{formatUpcoming(t.due_date)}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </DashboardLayout>
   );
