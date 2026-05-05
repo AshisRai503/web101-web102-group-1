@@ -1,21 +1,46 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import axiosInstance from '../../lib/axios';
+import { API_PATHS } from '../../lib/apiPaths';
+import getErrorMessage from '../../lib/getErrorMessage';
 
 export default function SignupPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const { register, handleSubmit, watch, formState: { errors } } = useForm();
 
   const password = watch('password');
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('token')) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
+
   const onSubmit = async (data) => {
+    setApiError('');
+    setSuccessMessage('');
     setIsLoading(true);
-    console.log('Signup data:', data);
-    setTimeout(() => {
+    try {
+      await axiosInstance.post(API_PATHS.AUTH.SIGNUP, {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        role: data.role || 'member',
+      });
+
+      setSuccessMessage('Account created! Redirecting to login...');
+      setTimeout(() => router.push('/login'), 800);
+    } catch (err) {
+      setApiError(getErrorMessage(err, 'Could not create account. Please try again.'));
+    } finally {
       setIsLoading(false);
-      alert('Registration successful (demo only)');
-    }, 1500);
+    }
   };
 
   return (
@@ -129,6 +154,17 @@ export default function SignupPage() {
             </label>
           </div>
           {errors.terms && <p className="text-red-500 text-xs">{errors.terms.message}</p>}
+
+          {apiError && (
+            <div className="px-3 py-2 rounded-md bg-red-50 border border-red-200 text-sm text-red-600">
+              {apiError}
+            </div>
+          )}
+          {successMessage && (
+            <div className="px-3 py-2 rounded-md bg-green-50 border border-green-200 text-sm text-green-700">
+              {successMessage}
+            </div>
+          )}
 
           <button
             type="submit"
