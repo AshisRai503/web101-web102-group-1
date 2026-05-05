@@ -2,19 +2,48 @@
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useForm } from 'react-hook-form';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import axiosInstance from '../../lib/axios';
+import { API_PATHS } from '../../lib/apiPaths';
+import getErrorMessage from '../../lib/getErrorMessage';
 
 export default function CreateTaskPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const { register, handleSubmit, formState: { errors }, reset } = useForm();
+  const [apiError, setApiError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const { register, handleSubmit, formState: { errors }, reset } = useForm({
+    defaultValues: {
+      title: '',
+      description: '',
+      priority: 'medium',
+      status: 'pending',
+      due_date: '',
+    },
+  });
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
+    setApiError('');
+    setSuccessMessage('');
     setIsLoading(true);
-    console.log('Task data:', data);
-    setTimeout(() => {
-      setIsLoading(false);
-      alert('Task created successfully (demo only)');
+    try {
+      const payload = {
+        title: data.title,
+        description: data.description,
+        priority: data.priority,
+        status: data.status,
+      };
+      if (data.due_date) payload.due_date = data.due_date;
+
+      await axiosInstance.post(API_PATHS.TASKS.CREATE, payload);
+      setSuccessMessage('Task created successfully. Redirecting...');
       reset();
-    }, 1500);
+      setTimeout(() => router.push('/tasks'), 600);
+    } catch (err) {
+      setApiError(getErrorMessage(err, 'Could not create task.'));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -85,6 +114,17 @@ export default function CreateTaskPage() {
               </select>
             </div>
           </div>
+
+          {apiError && (
+            <div className="mt-4 px-3 py-2 rounded-md bg-red-50 border border-red-200 text-sm text-red-600">
+              {apiError}
+            </div>
+          )}
+          {successMessage && (
+            <div className="mt-4 px-3 py-2 rounded-md bg-green-50 border border-green-200 text-sm text-green-700">
+              {successMessage}
+            </div>
+          )}
 
           <button
             type="submit"
