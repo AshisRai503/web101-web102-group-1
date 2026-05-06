@@ -2,9 +2,9 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 
 const members = [
   { id: 1, name: 'Ashis', email: 'ashis@timetoprogram.com', role: 'admin' },
-  { id: 2, name: 'John Doe', email: 'john@example.com', role: 'member' },
-  { id: 3, name: 'Jane Smith', email: 'jane@example.com', role: 'member' },
-  { id: 4, name: 'Bob Lee', email: 'bob@example.com', role: 'member' },
+  { id: 2, name: 'Ugyen', email: 'Ugyen@example.com', role: 'member' },
+  { id: 3, name: 'Kinley', email: 'Kinley@example.com', role: 'member' },
+  { id: 4, name: 'Bishal', email: 'Bishal@example.com', role: 'member' },
 ];
 
 export default function TeamPage() {
