@@ -16,7 +16,7 @@ const createUsersTable = async () => {
 
   try {
     await pool.query(query);
-    console.log('✓ Using mock in-memory database - ready for testing!');
+    console.log('✓ Users table created successfully!');
     process.exit(0);
   } catch (err) {
     console.error('Error creating users table:', err);

@@ -115,7 +115,7 @@ const deleteTask = async (req, res, next) => {
 
     const result = await pool.query(
       `DELETE FROM tasks
-       WHERE id = $1 AND (created_by = $2 OR created_by = $2)
+       WHERE id = $1 AND (created_by = $2 OR assigned_to = $2)
        RETURNING id`,
       [id, userId]
     );
