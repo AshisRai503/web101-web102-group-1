@@ -211,23 +211,49 @@ export default function DashboardPage() {
         <h3 className="text-base font-semibold text-gray-900 mb-4">Calendar</h3>
         <CalendarWidget />
       </div>
+      
+      {/* Recent Tasks Table */}
+      <div className='bg-white rounded-xl p-5 shadow-sm mt-6'>
+        <h3 className='text-sm font-semibold mb-4'>Recent Tasks</h3>
 
-      {/* Upcoming Tasks */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <h3 className="text-base font-semibold text-gray-900 mb-4">Upcoming Tasks</h3>
-        {upcoming.length === 0 ? (
-          <p className="text-sm text-gray-400">No upcoming tasks.</p>
-        ) : (
-          upcoming.map((t, idx) => (
-            <div key={t.id || idx} className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0">
-              <div className={`w-2.5 h-2.5 rounded-full ${upcomingColors[idx % upcomingColors.length]}`} />
-              <div>
-                <p className="font-medium text-sm text-gray-800">{t.title}</p>
-                <p className="text-xs text-gray-400">{formatUpcoming(t.due_date)}</p>
-              </div>
-            </div>
-          ))
-        )}
+        <table className='w-full text-sm'>
+          <thead>
+            <tr className='text-left text-gray-400 border-b'>
+              <th className='pb-2'>Task Name</th>
+              <th className='pb-2'>Status</th>
+              <th className='pb-2'>Priority</th>
+              <th className='pb-2'>Created Date</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {tasks.slice(0, 5).map((task) => (
+              <tr key={task.id} className='border-b last:border-0'>
+                <td className='py-2'>{task.title}</td>
+
+                <td className='py-2'>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      task.status === 'completed'
+                        ? 'bg-green-100 text-green-700'
+                        : task.status === 'in_progress'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-orange-100 text-orange-700'
+                    }`}
+                  >
+                    {task.status}
+                  </span>
+                </td>
+
+                <td className='py-2'>{task.priority}</td>
+
+                <td className='py-2'>
+                  {new Date(task.created_at).toLocaleDateString()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </DashboardLayout>
   );
