@@ -12,7 +12,9 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [inviteToken, setInviteToken] = useState('');
   const { register, handleSubmit, watch, formState: { errors } } = useForm();
+  
 
   const password = watch('password');
 
@@ -27,11 +29,12 @@ export default function SignupPage() {
     setSuccessMessage('');
     setIsLoading(true);
     try {
-      await axiosInstance.post(API_PATHS.AUTH.SIGNUP, {
+
+       await axiosInstance.post(API_PATHS.AUTH.SIGNUP, {
         name: data.name,
         email: data.email,
         password: data.password,
-        role: data.role || 'member',
+        inviteToken: inviteToken,
       });
 
       setSuccessMessage('Account created! Redirecting to login...');
@@ -124,16 +127,25 @@ export default function SignupPage() {
             </div>
           </div>
 
-          {/* Role selector */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-            <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500"
-              {...register('role')}
-            >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-            </select>
+          {/* Admin Invite Token */}
+          <div className='mb-4'>
+            <label className='block text-sm font-medium text-grey-700 mb-1'>
+              Admin Invite Token (optional)
+            </label>
+
+            <input
+            type="text"
+            placeholder='Enter 6-digit code'
+            maxLength='6'
+            value={inviteToken}
+            onChange={(e) => setInviteToken(e.target.value)}
+            className='w-full px-3 py-2 border border-gray-300 rounded-md'
+            />
+
+            <p className='text-xs text-gray-400 mt-1'>
+                Only enter this if you have an admin invite code
+            </p>
+
           </div>
 
           {/* Terms */}
