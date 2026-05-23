@@ -62,6 +62,21 @@ export default function TasksPage() {
     }
   };
 
+  const downloadReport = () => {
+    const rows = [["Title", "Description", "Status", "Priority", "Due Date", "Created At"]];
+    tasks.forEach(t => {
+      rows.push([t.title, t.description || "", normaliseStatus(t.status), t.priority || "", formatDate(t.due_date), formatDate(t.created_at)]);
+    });
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "tasks_report.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleEditSaved = (updatedTask) => {
     setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
     setEditingTask(null);
@@ -70,7 +85,12 @@ export default function TasksPage() {
   return (
     <DashboardLayout>
       <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Manage Tasks</h1>
+        <div className="flex gap-2">
+          <button onClick={downloadReport} className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">↓ Download Report</button>
+        </div>
+      </div>
         <button
           onClick={() => window.location.href = '/create-task'}
           className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
