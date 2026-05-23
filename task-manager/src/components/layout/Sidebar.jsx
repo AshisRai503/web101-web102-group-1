@@ -4,32 +4,20 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   MdDashboard, MdTask, MdAddBox,
-  MdGroup, MdCalendarMonth, MdLogout
+  MdGroup, MdCalendarMonth, MdLogout, MdAssignment
 } from 'react-icons/md';
-
-const navItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: <MdDashboard className="text-xl mr-3" /> },
-  { label: 'Manage Tasks', href: '/tasks', icon: <MdTask className="text-xl mr-3" /> },
-  { label: 'Create Task', href: '/create-task', icon: <MdAddBox className="text-xl mr-3" /> },
-  { label: 'Team Members', href: '/team', icon: <MdGroup className="text-xl mr-3" /> },
-  { label: 'Calendar', href: '/calendar', icon: <MdCalendarMonth className="text-xl mr-3" /> },
-];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState(null);
 
-  // Load the cached user from localStorage so we can show their name and role
-  // in the sidebar header without an extra round-trip.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
       const raw = localStorage.getItem('user');
       if (raw) setUser(JSON.parse(raw));
-    } catch {
-      setUser(null);
-    }
+    } catch { setUser(null); }
   }, []);
 
   const handleLogout = () => {
@@ -44,6 +32,23 @@ export default function Sidebar() {
   const displayEmail = user?.email || '';
   const displayRole = user?.role || 'member';
   const initial = displayName.charAt(0).toUpperCase();
+  const isAdmin = displayRole === 'admin';
+
+  const adminNavItems = [
+    { label: 'Dashboard', href: '/dashboard', icon: <MdDashboard className="text-xl mr-3" /> },
+    { label: 'Manage Tasks', href: '/tasks', icon: <MdTask className="text-xl mr-3" /> },
+    { label: 'Create Task', href: '/create-task', icon: <MdAddBox className="text-xl mr-3" /> },
+    { label: 'Team Members', href: '/team', icon: <MdGroup className="text-xl mr-3" /> },
+    { label: 'Calendar', href: '/calendar', icon: <MdCalendarMonth className="text-xl mr-3" /> },
+  ];
+
+  const memberNavItems = [
+    { label: 'Dashboard', href: '/dashboard', icon: <MdDashboard className="text-xl mr-3" /> },
+    { label: 'My Tasks', href: '/my-tasks', icon: <MdAssignment className="text-xl mr-3" /> },
+    { label: 'Calendar', href: '/calendar', icon: <MdCalendarMonth className="text-xl mr-3" /> },
+  ];
+
+  const navItems = isAdmin ? adminNavItems : memberNavItems;
 
   return (
     <div className="w-60 min-h-screen bg-white border-r border-gray-200 fixed top-0 left-0 flex flex-col p-4">
@@ -56,7 +61,7 @@ export default function Sidebar() {
           {initial}
         </div>
         <span className={`text-xs px-2 py-0.5 rounded-full uppercase font-bold ${
-          displayRole === 'admin' ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-600'
+          isAdmin ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-600'
         }`}>{displayRole}</span>
         <p className="font-semibold text-sm mt-1 text-gray-800">{displayName}</p>
         {displayEmail && <p className="text-xs text-gray-400 truncate">{displayEmail}</p>}
@@ -67,14 +72,10 @@ export default function Sidebar() {
         <ul className="space-y-1">
           {navItems.map((item) => (
             <li key={item.href}>
-              <Link
-                href={item.href}
+              <Link href={item.href}
                 className={`flex items-center p-3 rounded-md text-sm hover:bg-indigo-50 hover:text-indigo-600 ${
-                  pathname === item.href
-                    ? 'bg-indigo-50 text-indigo-600 font-semibold'
-                    : 'text-gray-600'
-                }`}
-              >
+                  pathname === item.href ? 'bg-indigo-50 text-indigo-600 font-semibold' : 'text-gray-600'
+                }`}>
                 {item.icon}
                 {item.label}
               </Link>
@@ -84,10 +85,8 @@ export default function Sidebar() {
       </nav>
 
       {/* Logout */}
-      <button
-        onClick={handleLogout}
-        className="flex items-center p-3 rounded-md text-sm text-red-500 hover:bg-red-50 mt-4"
-      >
+      <button onClick={handleLogout}
+        className="flex items-center p-3 rounded-md text-sm text-red-500 hover:bg-red-50 mt-4">
         <MdLogout className="text-xl mr-3" />
         Logout
       </button>
