@@ -25,6 +25,7 @@ import {
   MdDashboard, MdTask, MdAddBox,
   MdGroup, MdCalendarMonth, MdLogout, MdAssignment,
 } from 'react-icons/md';
+import NotificationBell from '../NotificationBell';
 
 /**
  * Sidebar component – fixed left navigation panel.
@@ -93,8 +94,11 @@ export default function Sidebar() {
   return (
     <div className="w-60 min-h-screen bg-white border-r border-gray-200 fixed top-0 left-0 flex flex-col p-4">
 
-      {/* Brand */}
-      <div className="text-lg font-bold text-gray-800 mb-6 px-2">Task Manager</div>
+      {/* Brand + Notification Bell */}
+      <div className='flex items-center justify-between mb-6 px-2'>
+        <div className='text-lg font-bold text-gray-800'>Task Manager</div>
+        <NotificationBell />
+      </div>
 
       {/* ── User profile card ─────────────────────────────────────────────── */}
       <div className="text-center mb-6 pb-4 border-b border-gray-200">
