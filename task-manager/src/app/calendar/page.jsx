@@ -3,8 +3,11 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useState } from 'react';
 
 export default function CalendarPage() {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 2, 1));
-  const today = 25;
+  const now = new Date();
+  const [currentDate, setCurrentDate] = useState(new Date(now.getFullYear(), now.getMonth(), 1));
+  const todayDate = now.getDate();
+  const todayMonth = now.getMonth();
+  const todayYear = now.getFullYear();
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const monthNames = ['January','February','March','April','May','June',
@@ -32,14 +35,17 @@ export default function CalendarPage() {
           {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
             <div key={d} className="text-xs font-semibold text-gray-400 pb-3">{d}</div>
           ))}
-          {days.map((d, i) => (
+          {days.map((d, i) => {
+            const isToday = d === todayDate && month === todayMonth && year === todayYear;
+            return (
             <div key={i} className={`py-3 text-sm rounded-lg cursor-pointer ${
-              d === today ? 'bg-indigo-600 text-white font-bold' :
+              isToday ? 'bg-indigo-600 text-white font-bold' :
               d ? 'hover:bg-indigo-50 text-gray-700' : ''
             }`}>
               {d || ''}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </DashboardLayout>

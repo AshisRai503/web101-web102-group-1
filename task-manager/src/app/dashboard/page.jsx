@@ -234,14 +234,14 @@ export default function DashboardPage() {
                 <td className='py-2'>
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      task.status === 'completed'
+                      normaliseStatus(task.status) === 'completed'
                         ? 'bg-green-100 text-green-700'
-                        : task.status === 'in_progress'
+                        : normaliseStatus(task.status) === 'in-progress'
                         ? 'bg-purple-100 text-purple-700'
                         : 'bg-orange-100 text-orange-700'
                     }`}
                   >
-                    {task.status}
+                    {normaliseStatus(task.status) === 'in-progress' ? 'In Progress' : task.status.charAt(0).toUpperCase() + task.status.slice(1)}
                   </span>
                 </td>
 

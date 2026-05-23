@@ -1,5 +1,12 @@
 const pool = require('../config/db');
 
+// Normalise status to always use underscore form stored in DB.
+// Accepts both 'in-progress' (frontend) and 'in_progress' (DB).
+const normaliseStatus = (s) => {
+  if (!s) return s;
+  return s.toString().toLowerCase().replace(/[_\s]+/g, '-').replace('in-progress', 'in_progress');
+};
+
 const listTasks = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -24,7 +31,7 @@ const createTask = async (req, res, next) => {
       `INSERT INTO tasks (title, description, status, priority, due_date, assigned_to, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, title, description, status, priority, due_date, assigned_to, created_by, created_at, updated_at`,
-      [title, description, status || 'pending', priority || 'medium', due_date, assigned_to, userId]
+      [title, description, normaliseStatus(status) || 'pending', priority || 'medium', due_date, assigned_to, userId]
     );
     res.status(201).json({ success: true, message: 'Task created successfully', data: result.rows[0] });
   } catch (error) { next(error); }
@@ -51,12 +58,12 @@ const updateTask = async (req, res, next) => {
     const userId = req.user.id;
     const result = await pool.query(
       `UPDATE tasks SET title = COALESCE($1, title), description = COALESCE($2, description),
-       status = COALESCE($3, status), priority = COALESCE($4, priority),
+       status = COALESCE($3::text, status), priority = COALESCE($4, priority),
        due_date = COALESCE($5, due_date), assigned_to = COALESCE($6, assigned_to),
        updated_at = CURRENT_TIMESTAMP
        WHERE id = $7 AND (created_by = $8 OR assigned_to = $8)
        RETURNING id, title, description, status, priority, due_date, assigned_to, created_by, created_at, updated_at`,
-      [title, description, status, priority, due_date, assigned_to, id, userId]
+      [title, description, normaliseStatus(status), priority, due_date, assigned_to, id, userId]
     );
     if (result.rows.length === 0) { const error = new Error('Task not found'); error.status = 404; throw error; }
     res.json({ success: true, message: 'Task updated successfully', data: result.rows[0] });
@@ -85,7 +92,7 @@ const updateTaskStatus = async (req, res, next) => {
       `UPDATE tasks SET status = $1, updated_at = CURRENT_TIMESTAMP
        WHERE id = $2 AND (created_by = $3 OR assigned_to = $3)
        RETURNING id, title, status`,
-      [status, id, userId]
+      [normaliseStatus(status), id, userId]
     );
     if (result.rows.length === 0) { const error = new Error('Task not found'); error.status = 404; throw error; }
     res.json({ success: true, message: 'Task status updated successfully', data: result.rows[0] });

@@ -1,6 +1,6 @@
 // Central place for all backend API endpoint constants.
 // Keep paths relative — the base URL is configured in src/lib/axios.js.
-export const BASE_URL = 'http://localhost:5000/api/v1';
+export const BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/v1`;
 export const API_PATHS = {
   AUTH: {
     LOGIN: '/auth/login',
