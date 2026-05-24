@@ -78,7 +78,7 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className='absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50'>
+        <div className='absolute left-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50'>
           <div className='flex items-center justify-between p-4 border-b border-gray-100'>
             <h3 className='text-sm font-semibold text-gray-900'>Notifications</h3>
             <span className='text-xs text-gray-400'>{notifications.length} upcoming</span>

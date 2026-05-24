@@ -34,3 +34,30 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+# DSO101 Final Project - CI/CD Pipeline
+
+**Application:** PERN Stack Task Manager
+
+## Live URLs
+| Service | URL |
+|---------|-----|
+| Frontend | https://fe-taskmanager.onrender.com |
+| Backend API | https://be-taskmanager.onrender.com |
+| GitHub Repo | https://github.com/AshisRai503/web101-web102-group-1 |
+| DockerHub | https://hub.docker.com/u/bishalwaiba |
+
+## Tools Used
+| Tool | Purpose |
+|------|---------|
+| GitHub Actions | CI/CD automation |
+| Docker | Containerization |
+| DockerHub | Container registry |
+| Render.com | Cloud hosting |
+| Neon PostgreSQL | Cloud database |
+
+## Security
+- All credentials stored as GitHub Secrets
+- No hardcoded passwords or tokens in code
+- .env files in .gitignore
+- SSL enabled for database connection
