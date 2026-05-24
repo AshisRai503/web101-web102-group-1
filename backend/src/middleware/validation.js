@@ -80,7 +80,7 @@ const signupSchema = Joi.object({
   email:       Joi.string().email().required(),
   password:    Joi.string().min(6).required(),
   name:        Joi.string().required(),
-  inviteToken: Joi.string().optional(),
+  inviteToken: Joi.string().optional().allow('').default(''),
 });
 
 /**
