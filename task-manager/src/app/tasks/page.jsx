@@ -8,6 +8,7 @@
  *  - Fetches all tasks from GET /api/v1/tasks on mount
  *  - Filter tabs: All / Pending / In Progress / Completed (with live counts)
  *  - Task card grid with status/priority badges, progress bar, due date
+ *  - Clickable task title navigates to /tasks/:id (Task Detail page)
  *  - Inline Edit button opens EditTaskModal overlay (PUT /api/v1/tasks/:id)
  *  - Delete button with confirmation dialog (DELETE /api/v1/tasks/:id)
  *  - CSV report download (all tasks, all fields)
@@ -16,6 +17,7 @@
  * Route: /tasks  (protected – requires valid JWT in localStorage)
  */
 'use client';
+import Link            from 'next/link';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -286,9 +288,15 @@ export default function TasksPage() {
                   </span>
                 </div>
 
-                {/* Task title and truncated description */}
+                {/* Task title – clicking navigates to the Task Detail page.
+                    Edit / Delete buttons in the footer are unaffected. */}
                 <div>
-                  <h3 className="font-semibold text-gray-900 text-sm mb-1">{task.title}</h3>
+                  <Link
+                    href={`/tasks/${task.id}`}
+                    className="font-semibold text-gray-900 text-sm mb-1 hover:text-indigo-600 transition-colors block"
+                  >
+                    {task.title}
+                  </Link>
                   <p className="text-xs text-gray-500 line-clamp-2">{task.description || 'No description provided.'}</p>
                 </div>
 

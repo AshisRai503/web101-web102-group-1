@@ -1,25 +1,64 @@
-// task-manager/src/components/NotificationBell.jsx
-// Notification bell component — shows tasks due within 24 hours
+/**
+ * NotificationBell.jsx – Task Deadline Notification Bell
+ *
+ * A client component rendered in the Sidebar header that polls for tasks
+ * due within the next 24 hours and surfaces them as an in-app notification
+ * dropdown.
+ *
+ * Features:
+ *  - Fetches all tasks via GET /api/v1/tasks on mount (skipped when no token).
+ *  - Filters to incomplete tasks whose due_date falls within the next 24 hours.
+ *  - Re-fetches every 5 minutes so the badge count stays current.
+ *  - Red badge on the bell icon shows the count, capped at "9+".
+ *  - Click-outside detection closes the dropdown automatically.
+ *  - Dropdown aligns to the left edge of the bell (left-0) to stay inside
+ *    the sidebar without overflowing off-screen.
+ *  - Each notification shows the task title, a human-readable time until due,
+ *    and the priority level.
+ *
+ * Used by: components/layout/Sidebar.jsx
+ */
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import axiosInstance from '../lib/axios';
 import { API_PATHS } from '../lib/apiPaths';
 
+/**
+ * NotificationBell component.
+ * Renders a bell icon button with a live badge count and a dropdown list of
+ * tasks due within the next 24 hours.
+ *
+ * @returns {JSX.Element}
+ */
 export default function NotificationBell() {
+  /** Array of incomplete task objects with due_date within the next 24 hours */
   const [notifications, setNotifications] = useState([]);
+  /** Controls whether the notification dropdown is currently visible */
   const [isOpen, setIsOpen] = useState(false);
+  /** Ref on the wrapper div used by the click-outside handler */
   const dropdownRef = useRef(null);
 
+  /**
+   * On mount: fetch notifications immediately, then schedule a re-fetch
+   * every 5 minutes (5 * 60 * 1000 ms).
+   * The fetch is skipped when no token is present (user not logged in).
+   * The interval is cleared on unmount via the cleanup function.
+   */
   useEffect(() => {
-    // Only fetch if user is logged in
     const token = localStorage.getItem('token');
     if (!token) return;
-    
+
     fetchNotifications();
+    /* Poll every 5 minutes so the count stays roughly current */
     const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    return () => clearInterval(interval); // cleanup on unmount
   }, []);
 
+  /**
+   * Click-outside handler – closes the dropdown when the user clicks anywhere
+   * outside the bell + dropdown wrapper element.
+   * Registered on mount and removed on unmount to avoid memory leaks.
+   */
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -30,32 +69,54 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  /**
+   * Fetch all tasks and filter to those due within the next 24 hours.
+   * Skips gracefully when no token exists to avoid an unauthenticated 401.
+   * Errors are logged to the console but not surfaced in the UI.
+   *
+   * API: GET /api/v1/tasks
+   * Response: { success: true, data: Task[] }
+   */
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
+
       const res = await axiosInstance.get(API_PATHS.TASKS.LIST);
       const tasks = Array.isArray(res?.data?.data) ? res.data.data : [];
+
       const now = new Date();
+      /* Upper bound: exactly 24 hours from now */
       const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+      /* Keep only incomplete tasks whose due date falls in [now, +24 h] */
       const upcoming = tasks.filter(task => {
-        if (!task.due_date) return false;
-        if (task.status === 'completed') return false;
+        if (!task.due_date) return false;            // no due date → skip
+        if (task.status === 'completed') return false; // done tasks need no alert
         const dueDate = new Date(task.due_date);
         return dueDate >= now && dueDate <= in24Hours;
       });
+
       setNotifications(upcoming);
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
     }
   };
 
+  /**
+   * Format a due date string into a human-readable countdown.
+   * Uses rounded hours so the text stays concise.
+   *
+   * @param {string} dateStr – ISO date string from task.due_date
+   * @returns {string} e.g. 'Due now!', 'Due in 1 hour', 'Due in 3 hours'
+   */
   const formatDue = (dateStr) => {
     const due = new Date(dateStr);
     const now = new Date();
+    /* Difference rounded to the nearest whole hour */
     const diffHours = Math.round((due - now) / (1000 * 60 * 60));
-    if (diffHours <= 0) return 'Due now!';
-    if (diffHours < 1) return 'Due in less than 1 hour';
+    if (diffHours <= 0)  return 'Due now!';
+    if (diffHours < 1)   return 'Due in less than 1 hour';
     if (diffHours === 1) return 'Due in 1 hour';
     return `Due in ${diffHours} hours`;
   };
