@@ -98,6 +98,13 @@ const statusStyles = {
 export default function TasksPage() {
   /** Full list of tasks returned by the API */
   const [tasks, setTasks] = useState([]);
+  /**
+   * Map of taskId → ChecklistItem[].
+   * Populated in parallel with tasks so each card shows real checklist data.
+   */
+  const [checklists, setChecklists] = useState({});
+  /** All users fetched once on mount for assignee-name lookup in task cards */
+  const [users, setUsers] = useState([]);
   /** Currently active filter tab: 'all' | 'pending' | 'in-progress' | 'completed' */
   const [filter, setFilter] = useState('all');
   /** True while the initial task fetch is in flight */
@@ -111,9 +118,12 @@ export default function TasksPage() {
 
   /**
    * Fetch all tasks from the API and populate state.
+   * Also fetches each task's checklist items in parallel so the progress bars
+   * and checklist tick-boxes are accurate from the first render.
    * Called on mount and can be called again to refresh the list.
    *
    * API: GET /api/v1/tasks
+   *      GET /api/v1/tasks/:id/checklists  (×N, in parallel via Promise.allSettled)
    * Response: { success: true, data: Task[] }
    */
   const fetchTasks = async () => {
@@ -121,7 +131,24 @@ export default function TasksPage() {
     setErrorMessage('');
     try {
       const res = await axiosInstance.get(API_PATHS.TASKS.LIST);
-      setTasks(Array.isArray(res?.data?.data) ? res.data.data : []);
+      const allTasks = Array.isArray(res?.data?.data) ? res.data.data : [];
+      setTasks(allTasks);
+
+      /* Fetch every task's checklist in parallel; individual failures are
+         silently absorbed so one broken task doesn't block the whole page. */
+      if (allTasks.length > 0) {
+        const results = await Promise.allSettled(
+          allTasks.map(t => axiosInstance.get(API_PATHS.TASKS.CHECKLISTS(t.id)))
+        );
+        const checklistMap = {};
+        allTasks.forEach((t, i) => {
+          const result = results[i];
+          checklistMap[t.id] = result.status === 'fulfilled' && Array.isArray(result.value?.data?.data)
+            ? result.value.data.data
+            : [];
+        });
+        setChecklists(checklistMap);
+      }
     } catch (err) {
       setErrorMessage(getErrorMessage(err, 'Failed to load tasks.'));
     } finally {
@@ -129,8 +156,27 @@ export default function TasksPage() {
     }
   };
 
-  /* Fetch tasks once when the component mounts */
+  /* Fetch tasks (and their checklists) once when the component mounts */
   useEffect(() => { fetchTasks(); }, []);
+
+  /**
+   * Fetch all users once for the assignee name-lookup map in task cards.
+   * Errors are logged but not surfaced – user display is non-critical.
+   *
+   * API: GET /api/v1/users
+   * Response: { success: true, data: User[] }
+   */
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await axiosInstance.get(API_PATHS.USERS.LIST);
+        setUsers(Array.isArray(res?.data?.data) ? res.data.data : []);
+      } catch (err) {
+        console.error('Failed to fetch users for assignee display', err);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   /**
    * Derived task list filtered by the active tab.
@@ -140,6 +186,15 @@ export default function TasksPage() {
     if (filter === 'all') return tasks;
     return tasks.filter((t) => normaliseStatus(t.status) === filter);
   }, [tasks, filter]);
+
+  /**
+   * Fast lookup map: userId → display name.
+   * Built once when `users` loads; used in card render to show assignee names.
+   */
+  const userMap = useMemo(
+    () => Object.fromEntries(users.map(u => [u.id, u.name])),
+    [users]
+  );
 
   /**
    * Delete a task after user confirmation.
@@ -206,24 +261,64 @@ export default function TasksPage() {
     setEditingTask(null);
   };
 
+  /**
+   * Toggle the completed state of a checklist item on a task card.
+   * Updates local checklists state immediately (optimistic UI) then syncs
+   * to the API. Rolls back on failure so the UI stays consistent.
+   *
+   * API: PATCH /api/v1/tasks/:taskId/checklists/:checklistId
+   * Request body: { completed: boolean }
+   *
+   * @param {number} taskId – Parent task ID
+   * @param {object} item   – Checklist item ({ id, completed, title, ... })
+   */
+  const toggleChecklist = async (taskId, item) => {
+    /* Optimistic update – flip the completed flag immediately in local state */
+    setChecklists(prev => ({
+      ...prev,
+      [taskId]: (prev[taskId] || []).map(c =>
+        c.id === item.id ? { ...c, completed: !c.completed } : c
+      ),
+    }));
+    try {
+      await axiosInstance.patch(
+        API_PATHS.TASKS.CHECKLIST_ITEM(taskId, item.id),
+        { completed: !item.completed }
+      );
+    } catch (err) {
+      /* Roll back to the original value if the API call fails */
+      setChecklists(prev => ({
+        ...prev,
+        [taskId]: (prev[taskId] || []).map(c =>
+          c.id === item.id ? { ...c, completed: item.completed } : c
+        ),
+      }));
+      console.error('Failed to update checklist item', err);
+    }
+  };
+
   return (
     <DashboardLayout>
       {/* ── Page Header ─────────────────────────────────────────────────── */}
+      {/* Title on the left, both action buttons together on the right */}
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Manage Tasks</h1>
-          <div className="flex gap-2">
-            {/* CSV download button */}
-            <button onClick={downloadReport} className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">↓ Download Report</button>
-          </div>
+        <h1 className="text-2xl font-bold text-gray-900">Manage Tasks</h1>
+        <div className="flex gap-2">
+          {/* CSV download – client-side Blob generation, no server round-trip */}
+          <button
+            onClick={downloadReport}
+            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700"
+          >
+            ↓ Download Report
+          </button>
+          {/* Navigate to create-task page */}
+          <button
+            onClick={() => window.location.href = '/create-task'}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+          >
+            + Create Task
+          </button>
         </div>
-        {/* Navigate to create-task page */}
-        <button
-          onClick={() => window.location.href = '/create-task'}
-          className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
-        >
-          + Create Task
-        </button>
       </div>
 
       {/* ── Filter Tabs ──────────────────────────────────────────────────── */}
@@ -274,8 +369,16 @@ export default function TasksPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((task) => {
-            const status = normaliseStatus(task.status);
-            const priority = (task.priority || 'medium').toLowerCase();
+            const status    = normaliseStatus(task.status);
+            const priority  = (task.priority || 'medium').toLowerCase();
+            /* Checklist progress – real % when items exist, null falls back to status */
+            const items     = checklists[task.id] || [];
+            const doneCount = items.filter(c => c.completed).length;
+            const progress  = items.length > 0
+              ? Math.round((doneCount / items.length) * 100)
+              : null;
+            /* Multi-assignee names from task_assignments JOIN */
+            const assignedMembers = Array.isArray(task.assigned_members) ? task.assigned_members : [];
             return (
               <div key={task.id} className="bg-white rounded-2xl shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
                 {/* Status & Priority badges */}
@@ -300,19 +403,74 @@ export default function TasksPage() {
                   <p className="text-xs text-gray-500 line-clamp-2">{task.description || 'No description provided.'}</p>
                 </div>
 
-                {/* Visual progress bar – status mapped to 0 / 50 / 100 % */}
+                {/* Assigned members – shown as indigo pills using userMap lookup */}
+                {assignedMembers.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {assignedMembers.map(uid => (
+                      <span key={uid} className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-xs rounded-full font-medium">
+                        {userMap[uid] || `User ${uid}`}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Progress bar: real checklist % when items exist, status-based otherwise */}
                 <div>
                   <div className="flex justify-between text-xs text-gray-400 mb-1">
                     <span>Progress</span>
-                    <span>{status === 'completed' ? '100%' : status === 'in-progress' ? '50%' : '0%'}</span>
+                    <span>
+                      {progress !== null
+                        ? `${progress}% (${doneCount}/${items.length})`
+                        : status === 'completed' ? '100%' : status === 'in-progress' ? '50%' : '0%'}
+                    </span>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-1.5">
                     <div
-                      className={`h-1.5 rounded-full ${status === 'completed' ? 'bg-green-500' : status === 'in-progress' ? 'bg-purple-500' : 'bg-gray-300'}`}
-                      style={{ width: status === 'completed' ? '100%' : status === 'in-progress' ? '50%' : '0%' }}
+                      className={`h-1.5 rounded-full transition-all ${
+                        progress === 100 || status === 'completed' ? 'bg-green-500'
+                        : progress > 0 || status === 'in-progress' ? 'bg-indigo-500'
+                        : 'bg-gray-300'
+                      }`}
+                      style={{
+                        width: progress !== null
+                          ? `${progress}%`
+                          : status === 'completed' ? '100%' : status === 'in-progress' ? '50%' : '0%',
+                      }}
                     ></div>
                   </div>
                 </div>
+
+                {/* Checklist items with tick-boxes – only rendered when items exist */}
+                {items.length > 0 && (
+                  <div className="border-t border-gray-100 pt-3">
+                    <p className="text-xs font-semibold text-gray-500 mb-2">Checklist</p>
+                    <ul className="space-y-1.5">
+                      {items.map(item => (
+                        <li
+                          key={item.id}
+                          className="flex items-center gap-2 cursor-pointer group"
+                          onClick={() => toggleChecklist(task.id, item)}
+                        >
+                          {/* Custom checkbox – filled indigo when completed */}
+                          <div className={`w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                            item.completed
+                              ? 'bg-indigo-600 border-indigo-600'
+                              : 'border-gray-300 group-hover:border-indigo-400'
+                          }`}>
+                            {item.completed && (
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/>
+                              </svg>
+                            )}
+                          </div>
+                          <span className={`text-xs ${item.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                            {item.title}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* Card footer: due date + action buttons */}
                 <div className="flex items-center justify-between pt-1 border-t border-gray-100">

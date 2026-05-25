@@ -244,8 +244,27 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-6 mb-6">
         <div className="bg-white rounded-2xl p-6 shadow-sm">
           <h3 className="text-base font-semibold text-gray-900 mb-4">Task Distribution</h3>
-          <div className="w-48 mx-auto">
-            <Doughnut data={donutData} options={{ plugins: { legend: { position: 'bottom' } }, cutout: '65%' }} />
+          {/*
+            * Removed the fixed w-48 (192 px) wrapper — it was too narrow for the
+            * three legend labels ("Pending", "In Progress", "Completed") to sit in
+            * a single centred row at the bottom of the chart.
+            * max-w-xs (320 px) gives Chart.js enough room to keep all legend items
+            * on one line while still looking compact inside the card.
+            */}
+          <div className="max-w-xs mx-auto">
+            <Doughnut
+              data={donutData}
+              options={{
+                plugins: {
+                  legend: {
+                    position: 'bottom',
+                    align: 'center',
+                    labels: { padding: 16, usePointStyle: true },
+                  },
+                },
+                cutout: '65%',
+              }}
+            />
           </div>
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm">

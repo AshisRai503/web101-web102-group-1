@@ -8,7 +8,8 @@
  *
  * Features:
  *  - React Hook Form for title/description/priority/status/due_date validation
- *  - Member assignment – fetches all users, renders toggle pills (single assign)
+ *  - Member assignment – fetches all users, renders toggle pills (multi-select);
+ *    all selected IDs sent as assigned_members[] to backend task_assignments table
  *  - Checklist builder – add items via input + Enter key or Add button
  *  - File attachment picker – multiple files, removable list
  *  - Success banner + 800ms redirect to /tasks on completion
@@ -79,7 +80,8 @@ export default function CreateTaskPage() {
   /**
    * Toggle a user's assignment status.
    * If the user is already selected, deselect; otherwise add to the list.
-   * The API currently only uses the first selected member (assigned_to).
+   * All selected IDs are sent as `assigned_members` to the backend, which
+   * inserts one row per member into the task_assignments join table.
    *
    * @param {number} userId – ID of the user to toggle
    */
@@ -157,12 +159,14 @@ export default function CreateTaskPage() {
     try {
       /* ── Step 1: Create the core task ─────────────────────────────── */
       const payload = {
-        title:       data.title,
-        description: data.description,
-        priority:    data.priority,
-        status:      data.status,
-        /* API accepts a single assignee; take the first selected member */
-        assigned_to: selectedMembers.length > 0 ? selectedMembers[0] : null,
+        title:            data.title,
+        description:      data.description,
+        priority:         data.priority,
+        status:           data.status,
+        /* Legacy single-assignee field – kept for backward compatibility */
+        assigned_to:      selectedMembers.length > 0 ? selectedMembers[0] : null,
+        /* All selected members written to task_assignments on the backend */
+        assigned_members: selectedMembers,
       };
       /* Only include due_date if the user filled it in */
       if (data.due_date) payload.due_date = data.due_date;
