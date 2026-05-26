@@ -1,0 +1,4 @@
+PORT=5000
+JWT_SECRET=supersecretkey123
+ADMIN_INVITE_TOKEN=123456
+DATABASE_URL=postgresql://neondb_owner:npg_TFneaXD4M8fY@ep-royal-dew-aooggjoa-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
