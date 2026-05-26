@@ -41,7 +41,10 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/fe-taskmanager:latest
 
-      # Step 6: Trigger Render to pull and deploy the new images
-      - name: Trigger Render Deployment
-        run: |
-          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      # Step 6: Trigger Render to deploy both services
+      - name: Trigger Render Backend Deployment
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
+
+      - name: Trigger Render Frontend Deployment
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}
+      
